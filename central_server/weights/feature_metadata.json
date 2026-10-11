@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "feature_columns": [
+    "current_cgpa",
+    "matric_10th",
+    "inter_12th",
+    "attendance_pct",
+    "daily_study_hours",
+    "backlogs",
+    "assignment_rate",
+    "stress_level",
+    "self_confidence",
+    "time_mgmt",
+    "exam_anxiety",
+    "motivation_level",
+    "sleep_hours",
+    "sleep_quality",
+    "screen_time_hours",
+    "social_media_usage",
+    "physical_health",
+    "diet_quality",
+    "extracurricular_hours",
+    "financial_support",
+    "parent_education",
+    "region_state",
+    "family_income",
+    "family_size",
+    "internet_access",
+    "scholarship",
+    "age",
+    "gender",
+    "region_type",
+    "part_time_job"
+  ],
+  "categorical_maps": {
+    "parent_education": {
+      "Illiterate": 0,
+      "School": 1,
+      "Graduate": 2,
+      "PostGraduate": 3
+    },
+    "region_state": {
+      "Bihar": 0,
+      "UP": 1,
+      "Rajasthan": 2,
+      "Kerala": 3,
+      "West Bengal": 4,
+      "Other": 5
+    },
+    "family_income": {
+      "Low": 0,
+      "Medium": 1,
+      "High": 2
+    },
+    "gender": {
+      "Male": 0,
+      "Female": 1,
+      "Other": 2
+    },
+    "region_type": {
+      "Rural": 0,
+      "Urban": 1
+    }
+  },
+  "binary_yes_no_cols": [
+    "internet_access",
+    "scholarship",
+    "part_time_job"
+  ],
+  "csv_to_feature_map": {
+    "Current_CGPA": "current_cgpa",
+    "Matriculation_10th_Percentage": "matric_10th",
+    "Intermediate_12th_Percentage": "inter_12th",
+    "Attendance_Percentage": "attendance_pct",
+    "Daily_Study_Time_Hours": "daily_study_hours",
+    "Backlogs_Count": "backlogs",
+    "Assignment_Submission_Rate": "assignment_rate",
+    "Stress_Level": "stress_level",
+    "Self_Confidence": "self_confidence",
+    "Time_Management_Skill": "time_mgmt",
+    "Exam_Anxiety_Level": "exam_anxiety",
+    "Motivation_Level": "motivation_level",
+    "Sleep_Hours": "sleep_hours",
+    "Sleep_Quality": "sleep_quality",
+    "Screen_Time_Hours": "screen_time_hours",
+    "Social_Media_Usage": "social_media_usage",
+    "Physical_Health_Fitness": "physical_health",
+    "Diet_Nutrition_Quality": "diet_quality",
+    "Extracurricular_Involvement_Hours": "extracurricular_hours",
+    "Financial_Support_Level": "financial_support",
+    "Parent_Education_Level": "parent_education",
+    "State_Region": "region_state",
+    "Family_Income_Bracket": "family_income",
+    "Family_Size": "family_size",
+    "Internet_Access_At_Home": "internet_access",
+    "Scholarship_Received": "scholarship",
+    "Age": "age",
+    "Gender": "gender",
+    "Region_Type": "region_type",
+    "Part_Time_Job_Status": "part_time_job",
+    "Predicted_Next_CGPA": "next_semester_cgpa"
+  },
+  "target": "next_semester_cgpa",
+  "performance_tiers": {
+    "Excellent": "cgpa >= 8.5",
+    "Good": "cgpa >= 7.0",
+    "Average": "cgpa >= 5.0",
+    "At-Risk": "cgpa < 5.0"
+  },
+  "training_samples": 2000
+}

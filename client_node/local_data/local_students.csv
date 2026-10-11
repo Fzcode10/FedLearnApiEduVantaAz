@@ -1,0 +1,14 @@
+﻿# Sample local student records for incremental training
+# These records are NEVER sent to the central server — only the weight deltas are.
+# Add real student records here in this CSV format.
+current_cgpa,matric_10th,inter_12th,attendance_pct,daily_study_hours,backlogs,assignment_rate,stress_level,self_confidence,time_mgmt,exam_anxiety,motivation_level,sleep_hours,sleep_quality,screen_time_hours,social_media_usage,physical_health,diet_quality,extracurricular_hours,financial_support,parent_education,region_state,family_income,family_size,internet_access,scholarship,age,gender,region_type,part_time_job,next_semester_cgpa
+7.2,78.5,72.0,82.0,4.5,1,85.0,6.0,6.5,6.0,5.5,7.0,6.5,6.0,3.5,5.0,6.5,6.0,1.5,6.0,2,1,1,4,1,0,20,0,1,0,7.4
+5.8,62.0,58.5,70.0,3.0,3,72.0,7.5,4.5,4.0,7.0,5.0,5.5,4.5,5.0,7.0,5.0,4.5,0.5,4.0,1,0,0,6,0,0,21,1,0,1,5.5
+8.9,90.0,88.0,95.0,6.5,0,96.0,3.5,8.5,8.0,3.0,9.0,7.5,8.0,2.0,2.5,8.0,8.0,3.0,7.5,3,3,2,3,1,1,19,1,1,0,9.1
+6.5,70.0,65.0,78.0,4.0,2,80.0,6.5,6.0,5.5,6.0,6.5,6.0,5.5,4.0,5.5,6.0,5.5,2.0,5.5,2,2,1,5,1,0,22,0,0,0,6.6
+4.2,50.0,48.0,60.0,2.0,5,55.0,8.5,3.5,3.0,8.5,3.5,5.0,3.5,6.5,8.0,4.0,3.5,0.0,3.0,0,1,0,7,0,0,23,0,0,1,4.0
+7.8,82.0,79.0,88.0,5.0,0,90.0,4.5,7.5,7.0,4.5,8.0,7.0,7.5,2.5,3.5,7.5,7.0,2.5,7.0,2,4,1,4,1,1,20,1,1,0,8.0
+6.0,65.0,62.0,74.0,3.5,2,75.0,7.0,5.5,5.0,6.5,5.5,6.0,5.0,4.5,6.5,5.5,5.0,1.0,5.0,1,0,1,5,1,0,21,0,1,1,6.0
+9.2,95.0,92.0,98.0,7.0,0,98.0,2.5,9.0,9.0,2.5,9.5,8.0,8.5,1.5,2.0,9.0,8.5,4.0,8.0,3,3,2,3,1,1,19,1,1,0,9.4
+5.5,60.0,57.0,68.0,3.0,3,68.0,7.5,5.0,4.5,7.0,5.0,5.5,4.5,5.5,7.0,5.0,4.5,0.5,4.5,1,1,0,6,1,0,22,0,0,0,5.4
+8.0,84.0,81.0,91.0,5.5,0,92.0,4.0,7.5,7.5,4.0,8.5,7.0,7.5,2.0,3.0,7.5,7.5,3.0,7.5,2,2,2,4,1,1,20,1,1,0,8.2
