@@ -1,0 +1,24 @@
+{
+  "endpoint": "GET /model/buffer-status",
+  "description": "Returns the current state of the aggregation staging buffer, showing which client updates are pending and how many samples each contributed.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "pending_updates": 2,
+    "clients": [
+      {
+        "client_id": "client_node_01",
+        "sample_count": 1500,
+        "received_at": "2026-11-01T14:10:00+00:00"
+      },
+      {
+        "client_id": "client_node_02",
+        "sample_count": 1200,
+        "received_at": "2026-11-01T14:12:00+00:00"
+      }
+    ],
+    "total_samples": 2700
+  },
+  "error_responses": {},
+  "notes": "Use this endpoint to verify that all expected client updates have been received before triggering aggregation. The buffer is cleared after a successful /model/aggregate call or manually via DELETE /model/clear-buffer."
+}

@@ -1,0 +1,13 @@
+{
+  "endpoint": "DELETE /model/clear-buffer",
+  "description": "Empties the aggregation staging buffer, discarding all pending client weight updates without performing aggregation.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "status": "buffer_cleared",
+    "discarded_updates": 2,
+    "cleared_at": "2026-11-01T14:20:00+00:00"
+  },
+  "error_responses": {},
+  "notes": "This is a destructive operation — all pending client updates are permanently lost. Use this to reset the buffer if client updates are stale or if you want to restart a training round. Safe to call even when the buffer is already empty."
+}

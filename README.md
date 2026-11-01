@@ -1,4 +1,4 @@
-﻿# EduVanta — Federated Learning Model
+# EduVanta — Federated Learning Model
 
 A fully decoupled Federated Learning system for predicting student academic performance using `SGDRegressor` and Federated Averaging (FedAvg).
 
@@ -39,22 +39,40 @@ central_server/               client_node/ (runs anywhere)
 
 ### Prerequisites
 
-```bash
-pip install fastapi uvicorn numpy scikit-learn pandas requests pydantic
+From the repository root, create and activate one virtual environment:
+
+```powershell
+cd D:\Project\EduVantaAzMlModel
+py -m venv venv
+.\venv\Scripts\Activate.ps1
 ```
 
-Or install per-component:
-```bash
-pip install -r central_server/requirements.txt
-pip install -r client_node/requirements.txt
+`Activate.ps1` is the PowerShell script that puts the virtual environment's
+Python and installed packages first on `PATH`. Activate it separately in every
+terminal before starting the server or a client. The three clients do not need
+three virtual environments; they use the same environment but different client
+IDs and ports.
+
+If PowerShell blocks the script:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\venv\Scripts\Activate.ps1
+```
+
+Install dependencies after activation:
+
+```powershell
+pip install -r central_server\requirements.txt
+pip install -r client_node\requirements.txt
 ```
 
 ---
 
 ## Step A — Initialise the Central Server Model
 
-```bash
-cd central_server
+```powershell
+cd D:\Project\EduVantaAzMlModel\central_server
 python init_base_model.py
 ```
 
@@ -72,14 +90,14 @@ python init_base_model.py
 
 ## Step B — Start the Central Server
 
-```bash
-cd central_server
+```powershell
+cd D:\Project\EduVantaAzMlModel\central_server
 uvicorn server_api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Verify it is running:
-```bash
-curl http://localhost:8000/
+```powershell
+Invoke-RestMethod http://localhost:8000/
 ```
 
 Browse the interactive API docs:
@@ -100,30 +118,100 @@ http://localhost:8000/docs
 
 ---
 
-## Step C — Start the Client Node
+## Step C — Configure and Start Client Nodes
 
-Open a **new terminal**:
+### Client Identity via `json/client_details.json`
 
-```bash
+Each client node folder contains a `json/client_details.json` file that defines
+its identity. This is the **single source of truth** for the client's `client_id`
+and `server_url`. You never need to edit Python source files to change identity.
+
+```json
+{
+  "client_id": "school-node-01",
+  "server_url": "http://localhost:8000",
+  "client_name": "School Node 01",
+  "description": "Client node for school dataset A"
+}
+```
+
+Environment variables always override the JSON file:
+
+| Variable | JSON field | Default |
+|---|---|---|
+| `EDUVANTA_CLIENT_ID` | `client_id` | `client-<hostname>` |
+| `EDUVANTA_SERVER_URL` | `server_url` | `http://localhost:8000` |
+| `EDUVANTA_LOCAL_DATA` | _(env only)_ | `<client_dir>/local_data` |
+| `EDUVANTA_WEIGHTS_DIR` | _(env only)_ | `<client_dir>/weights` |
+| `EDUVANTA_EPOCHS` | _(env only)_ | `3` |
+
+### Running Multiple Independent Clients on One Machine
+
+Copy the `client_node/` folder for each independent client. Each copy gets its
+own `json/client_details.json`, `local_data/`, and `weights/` directory.
+
+```text
+Project/
+├── client_node/           ← client A (port 8001)
+│   ├── json/client_details.json   {"client_id": "school-node-01", ...}
+│   ├── local_data/local_students.csv
+│   └── weights/
+├── client_node_copy/      ← client B (port 8002)
+│   ├── json/client_details.json   {"client_id": "school-node-02", ...}
+│   ├── local_data/local_students.csv
+│   └── weights/
+└── another_client/        ← client C (port 8003)
+    ├── json/client_details.json   {"client_id": "school-node-03", ...}
+    ├── local_data/local_students.csv
+    └── weights/
+```
+
+Run each in a separate PowerShell terminal. Activate `venv` in each terminal.
+
+### Client A — port 8001
+
+```powershell
+cd D:\Project\EduVantaAzMlModel
+.\venv\Scripts\Activate.ps1
 cd client_node
 uvicorn client_service:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-**Optional environment variables:**
+The `client_id` is read from `client_node/json/client_details.json` automatically.
+No environment variables required.
 
-| Variable | Default | Description |
-|---|---|---|
-| `EDUVANTA_SERVER_URL` | `http://localhost:8000` | Central server address |
-| `EDUVANTA_CLIENT_ID` | `client-<hostname>` | Unique client identifier |
-| `EDUVANTA_LOCAL_DATA` | `./local_data` | Path to local CSV records |
-| `EDUVANTA_EPOCHS` | `3` | SGD passes per training round |
+### Client B — port 8002 (copy of client_node)
 
-Example with custom config:
-```bash
-set EDUVANTA_CLIENT_ID=school-node-01
-set EDUVANTA_SERVER_URL=http://192.168.1.10:8000
+```powershell
+cd D:\Project\EduVantaAzMlModel
+.\venv\Scripts\Activate.ps1
+cd client_node_copy
+uvicorn client_service:app --host 0.0.0.0 --port 8002 --reload
+```
+
+`client_node_copy/json/client_details.json` must have a different `client_id`.
+
+### Client C — port 8003 (another copy)
+
+```powershell
+cd D:\Project\EduVantaAzMlModel
+.\venv\Scripts\Activate.ps1
+cd another_client
+uvicorn client_service:app --host 0.0.0.0 --port 8003 --reload
+```
+
+### Override identity without editing JSON (useful for quick tests)
+
+```powershell
+$env:EDUVANTA_CLIENT_ID="school-node-01"
+$env:EDUVANTA_SERVER_URL="http://192.168.1.10:8000"
 uvicorn client_service:app --host 0.0.0.0 --port 8001 --reload
 ```
+
+The client saves downloaded global models as `global_weights_vN.npz` in
+`weights/`. After each local training round, the locally-adapted weights are
+saved as `local_trained_weights.npz` (distinct from the global file) so the
+client can restore its state after a restart even when the server is offline.
 
 Browse client API docs:
 ```
@@ -134,14 +222,6 @@ http://localhost:8001/docs
 
 ## Step D — Run a Local Prediction
 
-### Via curl
-
-```bash
-curl -X POST http://localhost:8001/local/predict \
-  -H "Content-Type: application/json" \
-  -d @client_node/sample_student.json
-```
-
 ### Via PowerShell
 
 ```powershell
@@ -151,6 +231,8 @@ Invoke-RestMethod -Method POST `
   -ContentType "application/json" `
   -Body $body
 ```
+
+Change `8001` to `8002` or `8003` to call another client.
 
 **Expected response:**
 ```json
@@ -170,16 +252,22 @@ Invoke-RestMethod -Method POST `
 
 ### 1. Add local student records (never sent to server)
 
-Edit `client_node/local_data/local_students.csv` — the file already contains 10 sample records. Add real student rows in the same format (categoricals must be encoded as integers as per the schema).
+Edit `client_node\local_data\local_students.csv` — the file already contains
+10 sample student records. You can use these records for all three demo
+clients, or replace/add rows in this file. The client reads every CSV file in
+this folder; categorical values must use the encoded integers defined by the
+schema.
 
 ### 2. Trigger train-and-sync
 
-```bash
-curl -X POST http://localhost:8001/local/train-and-sync
+```powershell
+Invoke-RestMethod -Method POST http://localhost:8001/local/train-and-sync
+Invoke-RestMethod -Method POST http://localhost:8002/local/train-and-sync
+Invoke-RestMethod -Method POST http://localhost:8003/local/train-and-sync
 ```
 
 **What happens internally:**
-1. Reads all CSV files from `local_data/`
+1. Reads all CSV files from `client_node\local_data`
 2. Runs `SGDRegressor.partial_fit()` for `EDUVANTA_EPOCHS` passes
 3. POSTs `{client_id, sample_count, coef, intercept, scaler_mean, scaler_scale}` to `/model/sync-weights`
 
@@ -189,8 +277,8 @@ curl -X POST http://localhost:8001/local/train-and-sync
 
 Once one or more clients have synced, trigger aggregation on the server:
 
-```bash
-curl -X POST http://localhost:8000/model/aggregate
+```powershell
+Invoke-RestMethod -Method POST http://localhost:8000/model/aggregate
 ```
 
 **Expected response:**
@@ -210,8 +298,10 @@ A new `weights/global_weights_v2.npz` is saved. All subsequent client `/local/re
 
 ## Step G — Refresh Client with New Global Weights
 
-```bash
-curl -X POST http://localhost:8001/local/refresh-weights
+```powershell
+Invoke-RestMethod -Method POST http://localhost:8001/local/refresh-weights
+Invoke-RestMethod -Method POST http://localhost:8002/local/refresh-weights
+Invoke-RestMethod -Method POST http://localhost:8003/local/refresh-weights
 ```
 
 ---
@@ -236,24 +326,48 @@ curl -X POST http://localhost:8001/local/refresh-weights
 ```
 EduVantaAzMlModel/
 ├── central_server/
-│   ├── init_base_model.py      # Baseline synthetic training + weight export
-│   ├── server_api.py           # FastAPI: weight distribution + sync + FedAvg
-│   ├── aggregator.py           # Pure FedAvg logic (sample-weighted averaging)
+│   ├── init_base_model.py        # Baseline training + weight export (run once)
+│   ├── server_api.py             # FastAPI: weight distribution + sync + FedAvg
+│   ├── aggregator.py             # Pure FedAvg logic (sample-weighted averaging)
 │   ├── requirements.txt
+│   ├── json/
+│   │   └── api_examples/         # Request/response examples for every endpoint
+│   │       ├── health_check.json
+│   │       ├── get_latest_weights.json
+│   │       ├── sync_weights.json
+│   │       ├── buffer_status.json
+│   │       ├── aggregate.json
+│   │       └── clear_buffer.json
 │   └── weights/
 │       ├── global_weights_v1.npz
-│       ├── global_weights_v2.npz   (after first aggregation)
+│       ├── global_weights_v2.npz   (created after first aggregation)
 │       └── feature_metadata.json
 │
-├── client_node/
-│   ├── client_service.py       # FastAPI: predict + train-and-sync endpoints
-│   ├── local_trainer.py        # SGD partial_fit + server communication
-│   ├── sample_student.json     # Sample prediction payload
+├── client_node/                  # Copy this folder for each independent client
+│   ├── client_service.py         # FastAPI: predict + train-and-sync endpoints
+│   ├── local_trainer.py          # SGD partial_fit + server communication
+│   ├── config.py                 # Centralised configuration loader
+│   ├── sample_student.json       # Sample prediction payload
 │   ├── requirements.txt
-│   ├── local_weights_cache.npz # Auto-created: offline fallback cache
-│   └── local_data/
-│       └── local_students.csv  # Private local records (never transmitted)
+│   ├── json/
+│   │   ├── client_details.json   # ← edit this to set client_id & server_url
+│   │   └── api_examples/         # Request/response examples for every endpoint
+│   │       ├── health_check.json
+│   │       ├── local_status.json
+│   │       ├── predict.json
+│   │       ├── train_and_sync.json
+│   │       └── refresh_weights.json
+│   ├── local_data/
+│   │   └── local_students.csv    # Private local records (never transmitted)
+│   └── weights/                  # ALL weight files live here (single source of truth)
+│       ├── global_weights_v1.npz         # Downloaded from server
+│       ├── local_weights_cache.npz       # Offline fallback cache
+│       ├── local_weights_cache_meta.json # Metadata for the cache
+│       ├── local_trained_weights.npz     # Saved after each local training round
+│       ├── local_trained_weights_meta.json
+│       └── feature_metadata.json
 │
+├── API_TESTING.md                # Complete endpoint testing guide
 └── README.md
 ```
 
@@ -275,6 +389,10 @@ The existing global model is treated as a "virtual client" with weight `global_s
 ## Notes
 
 - **Privacy**: Only `coef`, `intercept`, `scaler_mean`, `scaler_scale`, and `sample_count` leave the client. Raw records stay local.
-- **Offline mode**: If the server is unreachable at startup, the client falls back to `local_weights_cache.npz`.
+- **Offline mode**: If the server is unreachable at startup, the client falls back to `local_trained_weights.npz` (post-training state), then `global_weights_vN.npz`, then `local_weights_cache.npz`.
 - **Versioning**: Each aggregation creates a new `global_weights_vN.npz`; old versions are retained for rollback.
 - **Scalability**: Multiple client nodes can run simultaneously — all POST to the same `/model/sync-weights`, and a single `/model/aggregate` merges all staged updates.
+- **Multi-instance**: Copy `client_node/` for each independent instance; edit its `json/client_details.json`. No Python source code changes are needed.
+- **Configuration**: `json/client_details.json` sets `client_id` and `server_url`. Environment variables always take priority over the JSON file.
+- **Weight isolation**: Every copied client folder has its own `weights/` directory. Clients never share or overwrite each other's weight files.
+- **Local persistence**: After each training round, `local_trained_weights.npz` is saved so the locally-adapted model survives service restarts.

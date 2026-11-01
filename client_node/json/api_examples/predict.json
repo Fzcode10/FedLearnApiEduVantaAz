@@ -1,0 +1,60 @@
+{
+  "endpoint": "POST /local/predict",
+  "description": "Predicts a student's CGPA using the client node's local model. Accepts all 30 student features and returns the predicted CGPA, performance tier, risk flag, and model metadata.",
+  "request_params": null,
+  "request_body": {
+    "current_cgpa": 7.2,
+    "matric_10th": 78.5,
+    "inter_12th": 72.3,
+    "attendance_pct": 82.0,
+    "daily_study_hours": 5.0,
+    "backlogs": 0,
+    "assignment_rate": 85.0,
+    "stress_level": 4.5,
+    "self_confidence": 7.0,
+    "time_mgmt": 6.5,
+    "exam_anxiety": 5.0,
+    "motivation_level": 7.5,
+    "sleep_hours": 7.0,
+    "sleep_quality": 7.0,
+    "screen_time_hours": 3.0,
+    "social_media_usage": 4.0,
+    "physical_health": 7.0,
+    "diet_quality": 6.5,
+    "extracurricular_hours": 2.0,
+    "financial_support": 6.0,
+    "parent_education": "Graduate",
+    "region_state": "Kerala",
+    "family_income": "Medium",
+    "family_size": 4,
+    "internet_access": 1,
+    "scholarship": 0,
+    "age": 20,
+    "gender": "Female",
+    "region_type": "Urban",
+    "part_time_job": 0
+  },
+  "response_200": {
+    "predicted_cgpa": 7.85,
+    "tier": "Good",
+    "risk_flag": false,
+    "model_version": 3,
+    "client_id": "client_node_01",
+    "predicted_at": "2026-11-01T14:30:00+00:00"
+  },
+  "error_responses": {
+    "422": {
+      "detail": [
+        {
+          "loc": ["body", "current_cgpa"],
+          "msg": "ensure this value is less than or equal to 10.0",
+          "type": "value_error.number.not_le"
+        }
+      ]
+    },
+    "503": {
+      "detail": "Local model is not trained yet. Call /local/train-and-sync or /local/refresh-weights first."
+    }
+  },
+  "notes": "All 30 features are required. Categorical fields (parent_education, region_state, family_income, gender, region_type) must use the exact string values listed in the schema. Binary fields (internet_access, scholarship, part_time_job) accept 0 or 1. Performance tiers: Excellent (8.5–10.0), Good (7.0–8.5), Average (5.0–7.0), At-Risk (0.0–5.0). The risk_flag is true when predicted CGPA falls in the At-Risk tier."
+}

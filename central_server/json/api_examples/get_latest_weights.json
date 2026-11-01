@@ -1,0 +1,65 @@
+{
+  "endpoint": "GET /model/latest-weights",
+  "description": "Returns the current global model weights, scaler parameters, feature metadata, and categorical mappings. Clients call this to synchronize with the latest aggregated model.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "version": 3,
+    "sample_count": 4500,
+    "coef": [
+      0.4512, -0.0023, 0.0018, 0.0134, 0.0567,
+      -0.1823, 0.0089, -0.0345, 0.0456, 0.0278,
+      -0.0512, 0.0634, 0.0189, 0.0234, -0.0178,
+      -0.0289, 0.0312, 0.0198, -0.0067, 0.0145,
+      0.0234, -0.0089, 0.0178, -0.0123, 0.0345,
+      0.0267, -0.0045, 0.0156, -0.0234, 0.0089
+    ],
+    "intercept": [6.8234],
+    "scaler_mean": [
+      6.25, 72.34, 68.91, 75.12, 4.5,
+      1.2, 70.45, 5.1, 6.3, 5.8,
+      5.5, 6.7, 6.8, 6.2, 3.5,
+      4.2, 6.5, 5.9, 2.1, 5.5,
+      1.5, 2.1, 1.0, 4.2, 0.72,
+      0.35, 20.5, 0.5, 0.45, 0.28
+    ],
+    "scaler_scale": [
+      1.45, 12.56, 13.21, 15.34, 1.8,
+      1.5, 18.23, 2.1, 1.9, 2.0,
+      2.2, 1.8, 1.5, 1.7, 2.3,
+      2.5, 1.6, 1.8, 1.9, 2.4,
+      0.87, 1.12, 0.82, 1.9, 0.45,
+      0.48, 3.2, 0.50, 0.50, 0.45
+    ],
+    "feature_columns": [
+      "current_cgpa", "matric_10th", "inter_12th", "attendance_pct",
+      "daily_study_hours", "backlogs", "assignment_rate", "stress_level",
+      "self_confidence", "time_mgmt", "exam_anxiety", "motivation_level",
+      "sleep_hours", "sleep_quality", "screen_time_hours", "social_media_usage",
+      "physical_health", "diet_quality", "extracurricular_hours", "financial_support",
+      "parent_education", "region_state", "family_income", "family_size",
+      "internet_access", "scholarship", "age", "gender",
+      "region_type", "part_time_job"
+    ],
+    "categorical_maps": {
+      "parent_education": { "Illiterate": 0, "School": 1, "Graduate": 2, "PostGraduate": 3 },
+      "region_state": { "Bihar": 0, "UP": 1, "Rajasthan": 2, "Kerala": 3, "West Bengal": 4, "Other": 5 },
+      "family_income": { "Low": 0, "Medium": 1, "High": 2 },
+      "gender": { "Male": 0, "Female": 1, "Other": 2 },
+      "region_type": { "Rural": 0, "Urban": 1 }
+    },
+    "performance_tiers": {
+      "Excellent": [8.5, 10.0],
+      "Good": [7.0, 8.5],
+      "Average": [5.0, 7.0],
+      "At-Risk": [0.0, 5.0]
+    },
+    "fetched_at": "2026-11-01T14:05:00+00:00"
+  },
+  "error_responses": {
+    "503": {
+      "detail": "No model weights available yet. Train at least one client first."
+    }
+  },
+  "notes": "The coef array has 30 elements corresponding to the 30 features in feature_columns (in the same order). The intercept is a single-element list. scaler_mean and scaler_scale are used to StandardScaler-transform input features before prediction. Returns 503 if no model has been trained or aggregated yet."
+}

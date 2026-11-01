@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "feature_columns": [
     "current_cgpa",
     "matric_10th",

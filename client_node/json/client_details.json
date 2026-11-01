@@ -1,0 +1,6 @@
+{
+  "client_id": "client-Node-1",
+  "server_url": "http://localhost:8000",
+  "client_name": "EduVanta Client 1",
+  "description": "Default client node for federated learning"
+}

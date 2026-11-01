@@ -1,0 +1,13 @@
+{
+  "endpoint": "GET /",
+  "description": "Health check endpoint for the central aggregation server. Returns service status and current timestamp.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "status": "ok",
+    "service": "EduVanta Central Model Server",
+    "timestamp": "2026-11-01T14:00:00+00:00"
+  },
+  "error_responses": {},
+  "notes": "This endpoint requires no authentication and is useful for verifying the server is running before making other API calls."
+}

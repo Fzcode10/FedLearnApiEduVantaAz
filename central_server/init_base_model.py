@@ -149,15 +149,40 @@ def load_and_preprocess(csv_path: str) -> pd.DataFrame:
             df[col] = df[col].map(mapping)
 
     # Convert Yes/No binary columns -> 1/0
+    # for col in BINARY_YES_NO_COLS:
+    #     if col in df.columns and df[col].dtype == object:
+    #         df[col] = df[col].map({"Yes": 1, "No": 0})
+    
+    # Convert Yes/No binary columns -> 1/0
     for col in BINARY_YES_NO_COLS:
-        if col in df.columns and df[col].dtype == object:
-            df[col] = df[col].map({"Yes": 1, "No": 0})
+        if col in df.columns:
+            # Normalize values to avoid case and whitespace issues
+            normalized = df[col].astype("string").str.strip().str.lower()
+
+            # Convert Yes/No to 1/0
+            df[col] = normalized.map({
+                "yes": 1,
+                "no": 0
+            })
+
+            # Debug unknown values
+            if df[col].isna().any():
+                print(f"\n[WARNING] Invalid values found in {col}:")
+                print(normalized[df[col].isna()].value_counts(dropna=False))
+
 
     # Ensure all columns are numeric
     df = df.apply(pd.to_numeric, errors="coerce")
 
     # Drop rows with any NaN after encoding
     before = len(df)
+    print("\n--- DEBUG: BEFORE DROPNA ---")
+    print("Data shape:", df.shape)
+    print("Missing values:")
+    print(df.isna().sum()[df.isna().sum() > 0])
+    print("Data types:")
+    print(df.dtypes)
+    print("Rows containing NaN:", df.isna().any(axis=1).sum())
     df = df.dropna()
     dropped = before - len(df)
     if dropped:

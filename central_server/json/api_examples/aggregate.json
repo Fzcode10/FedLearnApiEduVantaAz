@@ -1,0 +1,19 @@
+{
+  "endpoint": "POST /model/aggregate",
+  "description": "Triggers Federated Averaging (FedAvg) over all client updates currently in the staging buffer. Produces a new global model version with sample-weighted averaged coefficients, intercepts, and scaler parameters. The buffer is cleared after successful aggregation.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "status": "aggregated",
+    "new_version": 4,
+    "total_samples": 2700,
+    "clients_merged": 2,
+    "timestamp": "2026-11-01T14:15:00+00:00"
+  },
+  "error_responses": {
+    "400": {
+      "detail": "No updates in buffer to aggregate. Submit client weights via /model/sync-weights first."
+    }
+  },
+  "notes": "Requires at least one client update in the buffer. The new model version is incremented from the previous global version. After aggregation, clients should call /local/refresh-weights to pull the updated global model. The FedAvg formula weights each client's contribution by its sample_count relative to total_samples."
+}

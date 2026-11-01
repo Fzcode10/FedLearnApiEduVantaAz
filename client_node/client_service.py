@@ -1,4 +1,4 @@
-﻿"""
+"""
 client_service.py
 =================
 EduVanta Client Node — FastAPI service.
@@ -14,7 +14,8 @@ POST /local/refresh-weights     Force re-download of global weights from server
 Configuration via environment variables (with defaults):
     EDUVANTA_SERVER_URL   = http://localhost:8000
     EDUVANTA_CLIENT_ID    = client-<hostname>
-    EDUVANTA_LOCAL_DATA   = ./local_data
+    EDUVANTA_LOCAL_DATA   = <this file's directory>/local_data
+    EDUVANTA_WEIGHTS_DIR  = <this file's directory>/weights
     EDUVANTA_EPOCHS       = 3
 
 Start:
@@ -23,7 +24,6 @@ Start:
 
 from __future__ import annotations
 import os
-import socket
 import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -31,16 +31,17 @@ from typing import Any, Dict, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from local_trainer import LocalModel, fetch_global_weights, train_and_sync
+from config import load_client_config
+from local_trainer import (
+    LocalModel,
+    fetch_global_weights,
+    latest_versioned_weights,
+    train_and_sync,
+    version_from_weights_file,
+)
 
 # ── configuration ──────────────────────────────────────────────────────────────
-SERVER_URL     = os.getenv("EDUVANTA_SERVER_URL", "http://localhost:8000")
-CLIENT_ID      = os.getenv("EDUVANTA_CLIENT_ID",  f"client-{socket.gethostname()}")
-LOCAL_DATA_DIR = os.getenv("EDUVANTA_LOCAL_DATA",  os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_data"))
-EPOCHS         = int(os.getenv("EDUVANTA_EPOCHS", "3"))
-CACHE_PATH     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_weights_cache.npz")
-
-os.makedirs(LOCAL_DATA_DIR, exist_ok=True)
+config = load_client_config()
 
 # ── global model state ─────────────────────────────────────────────────────────
 _model_lock  = threading.Lock()
@@ -58,15 +59,48 @@ app = FastAPI(
 @app.on_event("startup")
 def startup_event():
     print(f"[client] Starting EduVanta Client Node")
-    print(f"[client] client_id    = {CLIENT_ID}")
-    print(f"[client] server_url   = {SERVER_URL}")
-    print(f"[client] local_data   = {LOCAL_DATA_DIR}")
+    print(f"[client] client_id    = {config.client_id}")
+    if config.client_name:
+        print(f"[client] client_name  = {config.client_name}")
+    print(f"[client] server_url   = {config.server_url}")
+    print(f"[client] local_data   = {config.local_data_dir}")
     try:
         with _model_lock:
-            fetch_global_weights(SERVER_URL, _local_model, cache_path=CACHE_PATH)
+            fetch_global_weights(
+                config.server_url,
+                _local_model,
+                cache_path=config.cache_path,
+                weights_dir=config.weights_dir,
+            )
         print(f"[client] Model ready: v{_local_model.version}")
     except Exception as exc:
         print(f"[client] WARNING: Could not load model on startup: {exc}")
+        # Last-resort fallback: try locally-trained weights
+        local_trained_path = os.path.join(
+            config.weights_dir, "local_trained_weights.npz"
+        )
+        local_trained_meta = os.path.join(
+            config.weights_dir, "local_trained_weights_meta.json"
+        )
+        if os.path.exists(local_trained_path):
+            try:
+                with _model_lock:
+                    _local_model.load_from_versioned_file(
+                        local_trained_path,
+                        metadata_path=local_trained_meta
+                        if os.path.exists(local_trained_meta)
+                        else os.path.join(config.weights_dir, "feature_metadata.json"),
+                    )
+                print(
+                    f"[client] Loaded local trained weights fallback: "
+                    f"v{_local_model.version}"
+                )
+                return
+            except Exception as fallback_exc:
+                print(
+                    f"[client] WARNING: Could not load local trained "
+                    f"weights either: {fallback_exc}"
+                )
         print("[client] Use POST /local/refresh-weights once the server is available.")
 
 
@@ -134,8 +168,8 @@ def health():
     return {
         "status":       "ok",
         "service":      "EduVanta Client Node",
-        "client_id":    CLIENT_ID,
-        "server_url":   SERVER_URL,
+        "client_id":    config.client_id,
+        "server_url":   config.server_url,
         "model_version": _local_model.version,
         "timestamp":    datetime.now(timezone.utc).isoformat(),
     }
@@ -145,13 +179,13 @@ def health():
 def status():
     """Returns information about the local model and configuration."""
     return {
-        "client_id":      CLIENT_ID,
-        "server_url":     SERVER_URL,
+        "client_id":      config.client_id,
+        "server_url":     config.server_url,
         "model_version":  _local_model.version,
         "sample_count":   _local_model.sample_count,
         "feature_count":  len(_local_model.feature_columns),
-        "local_data_dir": LOCAL_DATA_DIR,
-        "epochs":         EPOCHS,
+        "local_data_dir": config.local_data_dir,
+        "epochs":         config.epochs,
     }
 
 
@@ -161,16 +195,25 @@ def predict(req: PredictRequest):
     Predict next-semester CGPA for a student using the local model.
     Returns predicted_cgpa, performance tier, and risk_flag.
     """
-    if _local_model.version == 0:
-        raise HTTPException(
-            status_code=503,
-            detail="Model not loaded. Call POST /local/refresh-weights first."
-        )
-
-    features = req.model_dump()
-
     try:
         with _model_lock:
+            latest_path = latest_versioned_weights(config.weights_dir)
+            if latest_path:
+                latest_version = version_from_weights_file(latest_path)
+                if latest_version > _local_model.version:
+                    _local_model.load_from_versioned_file(
+                        latest_path,
+                        metadata_path=os.path.join(
+                            config.weights_dir, "feature_metadata.json"
+                        ),
+                    )
+
+            if _local_model.version == 0:
+                raise RuntimeError(
+                    "Model not loaded. Call POST /local/refresh-weights first."
+                )
+
+            features = req.model_dump()
             result = _local_model.predict(features)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -182,7 +225,7 @@ def predict(req: PredictRequest):
         tier=result["tier"],
         risk_flag=result["risk_flag"],
         model_version=result["model_version"],
-        client_id=CLIENT_ID,
+        client_id=config.client_id,
         predicted_at=datetime.now(timezone.utc).isoformat(),
     )
 
@@ -205,11 +248,12 @@ def train_and_sync_endpoint():
     try:
         with _model_lock:
             server_resp = train_and_sync(
-                server_url=SERVER_URL,
+                server_url=config.server_url,
                 model=_local_model,
-                local_data_dir=LOCAL_DATA_DIR,
-                client_id=CLIENT_ID,
-                epochs=EPOCHS,
+                local_data_dir=config.local_data_dir,
+                client_id=config.client_id,
+                epochs=config.epochs,
+                weights_dir=config.weights_dir,
             )
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -221,7 +265,7 @@ def train_and_sync_endpoint():
     return TrainSyncResponse(
         status="synced",
         samples_trained=_local_model.sample_count,
-        client_id=CLIENT_ID,
+        client_id=config.client_id,
         server_response=server_resp,
         completed_at=datetime.now(timezone.utc).isoformat(),
     )
@@ -232,7 +276,12 @@ def refresh_weights():
     """Force re-download of the latest global weights from the central server."""
     try:
         with _model_lock:
-            fetch_global_weights(SERVER_URL, _local_model, cache_path=CACHE_PATH)
+            fetch_global_weights(
+                config.server_url,
+                _local_model,
+                cache_path=config.cache_path,
+                weights_dir=config.weights_dir,
+            )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Could not fetch weights: {e}")
 

@@ -1,0 +1,18 @@
+{
+  "endpoint": "GET /local/status",
+  "description": "Returns information about the client node's local model, including its current version, training state, feature count, and the central server it is connected to.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "client_id": "client_node_01",
+    "model_version": 3,
+    "is_trained": true,
+    "feature_count": 30,
+    "sample_count": 1500,
+    "central_server_url": "http://localhost:8000",
+    "last_sync_at": "2026-11-01T14:10:00+00:00",
+    "checked_at": "2026-11-01T14:25:00+00:00"
+  },
+  "error_responses": {},
+  "notes": "If the model has not been trained yet, is_trained will be false and model_version may be 0. The sample_count reflects the number of local training samples available to this client."
+}

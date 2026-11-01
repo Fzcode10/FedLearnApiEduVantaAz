@@ -1,0 +1,52 @@
+{
+  "endpoint": "POST /model/sync-weights",
+  "description": "Receives locally trained model weights from a client node and stages them in the aggregation buffer. Weights remain in the buffer until /model/aggregate is called.",
+  "request_params": null,
+  "request_body": {
+    "client_id": "client_node_01",
+    "sample_count": 1500,
+    "coef": [
+      0.4601, -0.0019, 0.0021, 0.0141, 0.0589,
+      -0.1798, 0.0092, -0.0338, 0.0462, 0.0285,
+      -0.0498, 0.0641, 0.0195, 0.0241, -0.0169,
+      -0.0276, 0.0319, 0.0205, -0.0058, 0.0152,
+      0.0241, -0.0082, 0.0185, -0.0116, 0.0352,
+      0.0274, -0.0038, 0.0163, -0.0227, 0.0096
+    ],
+    "intercept": [6.7891],
+    "scaler_mean": [
+      6.31, 73.12, 69.45, 76.01, 4.6,
+      1.1, 71.23, 5.0, 6.4, 5.9,
+      5.4, 6.8, 6.9, 6.3, 3.4,
+      4.1, 6.6, 6.0, 2.0, 5.6,
+      1.6, 2.0, 1.1, 4.3, 0.74,
+      0.36, 20.8, 0.48, 0.47, 0.27
+    ],
+    "scaler_scale": [
+      1.42, 12.34, 13.05, 15.12, 1.75,
+      1.48, 17.98, 2.05, 1.88, 1.95,
+      2.15, 1.78, 1.48, 1.65, 2.28,
+      2.45, 1.58, 1.76, 1.85, 2.35,
+      0.85, 1.10, 0.80, 1.88, 0.44,
+      0.47, 3.15, 0.49, 0.49, 0.44
+    ]
+  },
+  "response_200": {
+    "status": "accepted",
+    "client_id": "client_node_01",
+    "buffer_size": 1,
+    "message": "Update staged. Call POST /model/aggregate to run FedAvg."
+  },
+  "error_responses": {
+    "422": {
+      "detail": [
+        {
+          "loc": ["body", "sample_count"],
+          "msg": "ensure this value is greater than or equal to 1",
+          "type": "value_error.number.not_ge"
+        }
+      ]
+    }
+  },
+  "notes": "The coef array must have exactly 30 elements matching the 30 model features. sample_count is used for weighted averaging during aggregation (FedAvg). scaler_mean and scaler_scale are optional but recommended; if omitted, the server retains its current scaler values. Multiple submissions from the same client_id before aggregation will overwrite the previous entry in the buffer."
+}

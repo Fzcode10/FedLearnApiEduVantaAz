@@ -1,4 +1,4 @@
-﻿"""
+"""
 local_trainer.py
 ================
 Handles all local model operations for the EduVanta client node:
@@ -30,6 +30,8 @@ import pandas as pd
 import requests
 from sklearn.linear_model import SGDRegressor
 from sklearn.preprocessing import StandardScaler
+
+from config import CLIENT_NODE_DIR
 
 # ── tier helper ────────────────────────────────────────────────────────────────
 def cgpa_to_tier(cgpa: float) -> Tuple[str, bool]:
@@ -106,13 +108,7 @@ class LocalModel:
 
     def load_from_cache(self, cache_path: str):
         """Load weights from a local .npz cache file (offline fallback)."""
-        data = np.load(cache_path, allow_pickle=False)
-        self.coef         = data["coef"]
-        self.intercept    = data["intercept"]
-        self.scaler_mean  = data["scaler_mean"]
-        self.scaler_scale = data["scaler_scale"]
-        self.version      = int(data["version"])
-        self.sample_count = int(data["sample_count"])
+        self._load_from_npz(cache_path)
         meta_path = cache_path.replace(".npz", "_meta.json")
         if os.path.exists(meta_path):
             with open(meta_path) as f:
@@ -122,8 +118,34 @@ class LocalModel:
         self._rebuild_sklearn_objects()
         print(f"[trainer] Loaded cached model v{self.version} from {cache_path}")
 
+    def _load_from_npz(self, weights_path: str):
+        """Load the numeric model state from a NumPy weights file."""
+        with np.load(weights_path, allow_pickle=False) as data:
+            self.coef         = data["coef"]
+            self.intercept    = data["intercept"]
+            self.scaler_mean  = data["scaler_mean"]
+            self.scaler_scale = data["scaler_scale"]
+            self.version      = int(data["version"])
+            self.sample_count = int(data["sample_count"])
+
+    def load_from_versioned_file(
+        self,
+        weights_path: str,
+        metadata_path: Optional[str] = None,
+    ):
+        """Load a versioned global weights file and its feature metadata."""
+        self._load_from_npz(weights_path)
+        if metadata_path and os.path.exists(metadata_path):
+            with open(metadata_path) as f:
+                meta = json.load(f)
+            self.feature_columns  = meta.get("feature_columns", [])
+            self.categorical_maps = meta.get("categorical_maps", {})
+        self._rebuild_sklearn_objects()
+        print(f"[trainer] Loaded local model v{self.version} from {weights_path}")
+
     def save_to_cache(self, cache_path: str):
         """Persist current weights to a local .npz cache file."""
+        os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
         np.savez(
             cache_path,
             coef=self.coef,
@@ -140,6 +162,62 @@ class LocalModel:
                 "categorical_maps": self.categorical_maps,
             }, f, indent=2)
         print(f"[trainer] Weights cached to {cache_path}")
+
+    def save_to_versioned_file(self, weights_dir: str):
+        """Save the current model using the server's versioned filename format."""
+        os.makedirs(weights_dir, exist_ok=True)
+        weights_path = os.path.join(
+            weights_dir, f"global_weights_v{self.version}.npz"
+        )
+        metadata_path = os.path.join(weights_dir, "feature_metadata.json")
+        np.savez(
+            weights_path,
+            coef=self.coef,
+            intercept=self.intercept,
+            scaler_mean=self.scaler_mean,
+            scaler_scale=self.scaler_scale,
+            version=np.array(self.version),
+            sample_count=np.array(self.sample_count),
+        )
+        with open(metadata_path, "w") as f:
+            json.dump({
+                "version": self.version,
+                "feature_columns": self.feature_columns,
+                "categorical_maps": self.categorical_maps,
+            }, f, indent=2)
+        print(f"[trainer] Versioned weights saved to {weights_path}")
+
+    def save_local_trained_weights(self, weights_dir: str) -> str:
+        """
+        Persist locally-trained weights as ``local_trained_weights.npz``.
+
+        This file is distinct from ``global_weights_vN.npz`` (downloaded from
+        the server) and ``local_weights_cache.npz`` (offline fallback cache).
+        It stores the model state *after* a local partial_fit round so that the
+        client can restore its locally-adapted weights after a restart, even
+        when the central server is temporarily unavailable.
+
+        Returns the absolute path of the saved file.
+        """
+        os.makedirs(weights_dir, exist_ok=True)
+        weights_path = os.path.join(weights_dir, "local_trained_weights.npz")
+        meta_path    = os.path.join(weights_dir, "local_trained_weights_meta.json")
+        np.savez(
+            weights_path,
+            coef=self.coef,
+            intercept=self.intercept,
+            scaler_mean=self.scaler_mean,
+            scaler_scale=self.scaler_scale,
+            version=np.array(self.version),
+            sample_count=np.array(self.sample_count),
+        )
+        with open(meta_path, "w") as f:
+            json.dump({
+                "feature_columns":  self.feature_columns,
+                "categorical_maps": self.categorical_maps,
+            }, f, indent=2)
+        print(f"[trainer] Local trained weights saved to {weights_path}")
+        return weights_path
 
     # ── feature encoding ───────────────────────────────────────────────────────
     def _encode_input(self, features: Dict[str, Any]) -> np.ndarray:
@@ -215,12 +293,16 @@ class LocalModel:
                 "Add student records before training."
             )
 
-        frames = [pd.read_csv(f) for f in csv_files]
+        # Local data files may begin with explanatory comment lines. Ignore
+        # those lines so pandas uses the actual CSV header.
+        frames = [pd.read_csv(f, comment="#") for f in csv_files]
         df     = pd.concat(frames, ignore_index=True)
 
         # Encode categoricals
         for col, mapping in self.categorical_maps.items():
-            if col in df.columns:
+            # Some local exports already contain the encoded integer values
+            # from feature_metadata.json. Only map human-readable categories.
+            if col in df.columns and not pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].map(mapping)
 
         required_cols = self.feature_columns + ["next_semester_cgpa"]
@@ -254,13 +336,39 @@ class LocalModel:
 
 # ── module-level convenience functions ─────────────────────────────────────────
 
-_DEFAULT_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local_weights_cache.npz")
+_DEFAULT_WEIGHTS_DIR = os.path.join(CLIENT_NODE_DIR, "weights")
+_DEFAULT_CACHE = os.path.join(_DEFAULT_WEIGHTS_DIR, "local_weights_cache.npz")
+
+
+def latest_versioned_weights(weights_dir: str) -> Optional[str]:
+    """Return the newest global_weights_vN.npz file in a weights directory."""
+    candidates = []
+    for path in glob.glob(os.path.join(weights_dir, "global_weights_v*.npz")):
+        filename = os.path.basename(path)
+        prefix = "global_weights_v"
+        if not filename.startswith(prefix) or not filename.endswith(".npz"):
+            continue
+        try:
+            version = int(filename[len(prefix):-4])
+        except ValueError:
+            continue
+        candidates.append((version, path))
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item[0])[1]
+
+
+def version_from_weights_file(weights_path: str) -> int:
+    """Read the embedded model version from a NumPy weights file."""
+    with np.load(weights_path, allow_pickle=False) as data:
+        return int(data["version"])
 
 
 def fetch_global_weights(
     server_url: str,
     model: LocalModel,
     cache_path: str = _DEFAULT_CACHE,
+    weights_dir: str = _DEFAULT_WEIGHTS_DIR,
     timeout: int = 10,
 ) -> LocalModel:
     """
@@ -274,9 +382,18 @@ def fetch_global_weights(
         data = resp.json()
         model.load_from_server_response(data)
         model.save_to_cache(cache_path)
+        model.save_to_versioned_file(weights_dir)
         return model
     except Exception as exc:
         print(f"[trainer] Could not reach server ({exc}). Trying local cache ...")
+        latest_path = latest_versioned_weights(weights_dir)
+        if latest_path:
+            model.load_from_versioned_file(
+                latest_path,
+                metadata_path=os.path.join(weights_dir, "feature_metadata.json"),
+            )
+            model.save_to_cache(cache_path)
+            return model
         if os.path.exists(cache_path):
             model.load_from_cache(cache_path)
             return model
@@ -293,13 +410,30 @@ def train_and_sync(
     client_id: str,
     epochs: int = 3,
     timeout: int = 15,
+    weights_dir: str = "",
 ) -> Dict[str, Any]:
     """
     Convenience function: partial_fit on local data, then POST weights to server.
 
+    After training, the updated model is persisted to:
+      - ``<weights_dir>/local_trained_weights.npz``  (distinct from global weights)
+      - ``<weights_dir>/local_weights_cache.npz``    (offline fallback)
+
+    ``weights_dir`` defaults to the module-level ``_DEFAULT_WEIGHTS_DIR`` when
+    not supplied, which is always an absolute path anchored to the client_node
+    directory rather than the process working directory.
+
     Returns the server's response JSON.
     """
     n_samples = model.partial_fit_on_local_data(local_data_dir, epochs=epochs)
+
+    # Resolve weights directory (prefer explicit arg, fall back to module default)
+    resolved_dir  = weights_dir if weights_dir else _DEFAULT_WEIGHTS_DIR
+    cache_path    = os.path.join(resolved_dir, "local_weights_cache.npz")
+
+    # Persist locally-trained weights so they survive service restarts
+    model.save_local_trained_weights(resolved_dir)
+    model.save_to_cache(cache_path)
 
     payload = {
         "client_id":    client_id,

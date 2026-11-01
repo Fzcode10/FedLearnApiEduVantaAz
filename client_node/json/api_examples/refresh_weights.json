@@ -1,0 +1,21 @@
+{
+  "endpoint": "POST /local/refresh-weights",
+  "description": "Downloads the latest global model weights from the central server and replaces the client's local model. Use this after the server has performed aggregation to get the improved federated model.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "status": "weights_refreshed",
+    "new_version": 4,
+    "client_id": "client_node_01",
+    "refreshed_at": "2026-11-01T14:40:00+00:00"
+  },
+  "error_responses": {
+    "502": {
+      "detail": "Failed to fetch weights from central server. Server may be unreachable at http://localhost:8000."
+    },
+    "503": {
+      "detail": "Central server has no model weights available yet."
+    }
+  },
+  "notes": "The central server must be running and must have a trained model (at least one aggregation round completed, or initial weights loaded). After refreshing, the client can immediately use /local/predict with the updated model. This does NOT retrain the local model — it only downloads and applies the global weights."
+}

@@ -1,0 +1,27 @@
+{
+  "endpoint": "POST /local/train-and-sync",
+  "description": "Trains the local model on the client's dataset and pushes the resulting weights to the central server's aggregation buffer. This is the primary endpoint for participating in a federated learning round.",
+  "request_params": null,
+  "request_body": null,
+  "response_200": {
+    "status": "trained_and_synced",
+    "samples_trained": 1500,
+    "client_id": "client_node_01",
+    "server_response": {
+      "status": "accepted",
+      "client_id": "client_node_01",
+      "buffer_size": 1,
+      "received_at": "2026-11-01T14:35:00+00:00"
+    },
+    "completed_at": "2026-11-01T14:35:01+00:00"
+  },
+  "error_responses": {
+    "500": {
+      "detail": "Training failed: insufficient data in local dataset."
+    },
+    "502": {
+      "detail": "Failed to sync weights to central server. Server may be unreachable at http://localhost:8000."
+    }
+  },
+  "notes": "This endpoint performs two operations sequentially: (1) trains a linear regression model on the client's local CSV data, and (2) POSTs the resulting coef, intercept, scaler_mean, and scaler_scale to the central server's /model/sync-weights endpoint. The central server must be running and reachable. The server_response field contains the raw response from the central server confirming receipt."
+}
