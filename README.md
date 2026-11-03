@@ -78,7 +78,8 @@ python init_base_model.py
 
 **Expected output:**
 ```
-[init] Generating synthetic baseline data (n=2000) ...
+[init] Loading real student data from: ...\central_server\student_data.csv
+[init] Loaded ... rows, ... columns from ...\central_server\student_data.csv
 [init] Training baseline SGDRegressor ...
 [init] Baseline R² on training set: 0.9xxx
 [init] Saved weights  -> weights/global_weights_v1.npz

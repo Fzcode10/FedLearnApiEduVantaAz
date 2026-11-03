@@ -1,7 +1,7 @@
 ﻿"""
 init_base_model.py
 ==================
-Loads real student records from  central_server/student_data.csv,
+Loads the existing student records from central_server/student_data.csv,
 encodes all categorical columns, trains an initial SGDRegressor, and exports:
   - weights/global_weights_v1.npz   (coef + intercept + scaler params)
   - weights/feature_metadata.json   (ordered feature column list + encodings)
